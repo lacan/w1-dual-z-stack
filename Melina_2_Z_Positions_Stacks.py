@@ -2,12 +2,43 @@
 # Based on initial code by Dr. Arne Seitz, BIOP
 # With help from Visitron Systems
 # Written by Olivier Burri, BIOP
-# Last update: 26 May 2016
+# Last update: 01 June 2016
 
+# Protocol
+# 1. Launch Macro
+# 2. Define Experiment Settings:
+#		- Save Directory
+#		- Interval between cycles
+#		- Number of Cycles
+#
+# 2. Define BRIGHTFIELD Settings
+#		- Exposure Time
+#		- Z Series
+#	    - Camera Region
+#    == Before Pressing OK, Make sure that LIVE is still running ==
+#	            === Otherwise we cannot get the Region ===
+#
+#		== All settings will be saved in .acq file in the ==
+#		==           previously defined folder            == 
+#
+# 3. Define Fluorescence Settings
+#		- Exposure Time for each wavelengths
+#		- Wavelength(s)
+#		- Z Series
+#
+#		== All settings will be saved in .acq file in the ==
+#		==           previously defined folder            == 
+#
+#    === AFTER PRESSING OK, THE ACQUISITON STARTS
+
+
+
+# ==== START CODE ==== ##
 import sys
 import os
 import time   # To assess timings 
 import pickle # To save and write data to a file
+
 
 # ============== Define Classes ============== #
 class TicToc:
@@ -23,6 +54,71 @@ class TicToc:
 		delta = round( self.t2 - self.t1 )
 		return delta
 
+
+# ==== SAVE AND GET OTHER SETTINGS ====
+def saveSettings(path, *args):
+	try:
+		# Save Settings
+		with open(path, 'w') as f:
+			pickle.dump(args, f)
+	except:
+		print 'Could not save values'
+
+def loadSettings(path):
+	vars = {}
+	try:
+		# Save Settings
+		with open(path) as f:
+			vars = pickle.load(f)
+			print vars
+	except:
+		print 'Could not load values'
+	
+	return vars
+	
+
+# ==== MANAGE LASER POWER ====
+# Because Laser power is not saved we manage this on our own
+
+# This variable acts as a 'switch' statement and maps a 
+# simpler name for the lasers to the actual names needed
+# by VV.
+global switcher
+
+switcher = {
+	'405': 'Toptica405_Laser405',
+	'488': 'Toptica488_Laser488',
+	'561': 'MMC D/A_Laser561', 
+	'640': 'Toptica640_Laser640'
+	}
+
+
+# Laser Power Getter, give vavelength as String
+def getLaserPower(wavelength):
+	
+	value = VV.Illumination.GetComponentSlider(switcher.get(wavelength))
+	return value
+
+# Convenience, get all laser powers
+def getAllLaserPowers():
+	i405 = getLaserPower('405')
+	i488 = getLaserPower('488')
+	i561 = getLaserPower('561')
+	i640 = getLaserPower('640')
+	return { '405': i405, '488': i488, '561': i561,  '640':i640 }
+
+# Value setter. Value gets set but panel does not update until you open/close it...
+def setLaserPower(wavelength, value):
+	
+	VV.Illumination.SetComponentSlider(switcher.get(wavelength), value)
+	# Check that the power was set
+	new_value = VV.Illumination.GetComponentSlider(switcher.get(wavelength))
+	# Reload Panel, to see updated values...
+	VV.Panel.Dialog.Close
+	VV.Panel.Dialog.Show
+	
+
+
 # Instantiate Timer
 T = TicToc()
 
@@ -34,15 +130,18 @@ VV.Macro.InputDialog.Left  = 100
 VV.Macro.InputDialog.Width = 350
 
 # ============ Initialize Variables =========== #
+
+
 has_crop = False
 
-save_dir           = VV.Acquire.Sequence.Directory
+save_dir      = VV.Acquire.Sequence.Directory
 
 time_interval = 10 #seconds
 cycles        = 5 
 # Load defaults if present
 
-defaults_path = 'defaults.txt'
+defaults_path = 'D:\\Macros\\w1-two-stack-macro\\defaults.txt'
+
 if os.path.isfile(defaults_path):
         with open(defaults_path) as f:
             time_interval, cycles = pickle.load(f)
@@ -65,13 +164,9 @@ VV.Macro.InputDialog.Show()
 # File PATHS
 
 region_path        = save_dir+'\\crop-area-camera'
-bf_settings_path   = save_dir+"\\biop-macro-bf.acq"
-fluo_settings_path = save_dir+"\\biop-macro-fluo.acq"
-
-# Save Settings
-with open(defaults_path, 'w') as f:
-    pickle.dump([time_interval, cycles], f)
-
+bf_settings_path   = save_dir+'\\biop-macro-bf.acq'
+fluo_settings_path = save_dir+'\\biop-macro-fluo.acq'
+expt_settings_path = save_dir+'\\expt-settings.txt'
 
 #***************************************************
 # =========== Dialog First Stack Plane =============
@@ -89,21 +184,24 @@ VV.Acquire.StartLive();
 
 VV.Macro.InputDialog.Initialize('Define your Brightfield Parameters: ',True)
 VV.Macro.InputDialog.AddLabelOnly('1. Define a region for CCD Cropping.')
-VV.Macro.InputDialog.AddLabelOnly('2. Choose Z Series parameters.')
+VV.Macro.InputDialog.AddLabelOnly('2. Choose Z series parameters.')
 VV.Macro.InputDialog.AddLabelOnly('And click OK...')
 
 # Display Macro Dialog with instructions
 VV.Macro.InputDialog.Show()
 
-
 # ========== Save Necessary Parameters =========== #
 
 # Live Not selected by default, need to set it manually
-VV.Window.Selected.Handle = VV.Window.GetHandle.Live
-# Save region if it exists to crop afterwards during acquisition
-if  VV.Window.Regions.Count == 1:
-	VV.Edit.Regions.Save(region_path)
-	has_crop = True
+live_handle = VV.Window.GetHandle.Live
+VV.Window.Selected.Handle = live_handle
+
+# Make sure Live is on when looking at the available Regions
+if not live_handle.IsEmpty:
+	# Save region if it exists to crop afterwards during acquisition
+	if  VV.Window.Regions.Count == 1:
+		VV.Edit.Regions.Save(region_path)
+		has_crop = True
 
 #Stop acquisition
 VV.Acquire.Stop()
@@ -131,7 +229,7 @@ except :
 VV.Acquire.StartLive();
 VV.Macro.InputDialog.Initialize('Define your Fluorescence Parameters',True)
 VV.Macro.InputDialog.AddLabelOnly('1. Choose Illumination(s), exposure, laser, settings')
-VV.Macro.InputDialog.AddLabelOnly('2. Choose Z Series parameters')
+VV.Macro.InputDialog.AddLabelOnly('2. Choose Z series parameters')
 VV.Macro.InputDialog.AddLabelOnly('And click OK...')
 
 # Display Macro Dialog with instructions
@@ -143,6 +241,14 @@ VV.Acquire.Stop()
 
 #Save FLUO Settings
 VV.Acquire.Settings.Save(fluo_settings_path)
+
+# Get and Save Laser Powers
+lasers = getAllLaserPowers()
+
+
+settings = [lasers, time_interval, cycles]
+saveSettings(expt_settings_path, settings)
+# Save Experiment Settings
 
 #***************************************************
 # ============== Perform Acquisition ===============
@@ -185,7 +291,7 @@ try:
 
 		#Overwrite directory for acquisitions
 		VV.Acquire.Sequence.Directory = tmp_dir
-
+		VV.Focus.ZPosition = z1_focus
 		# Run BF Acquisition
 		VV.Acquire.Sequence.Start()
 		VV.Macro.Control.WaitFor('VV.Acquire.IsRunning','!=','true')
@@ -207,7 +313,8 @@ try:
 
 		#Overwrite directory for acquisitions
 		VV.Acquire.Sequence.Directory = tmp_dir
-
+		
+		VV.Focus.ZPosition = z2_focus
 		# Run FLUO Acquisition
 		VV.Acquire.Sequence.Start()
 		VV.Macro.Control.WaitFor('VV.Acquire.IsRunning','!=','true')
