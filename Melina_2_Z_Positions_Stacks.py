@@ -3,7 +3,7 @@
 # With help from Visitron Systems
 # Written by Olivier Burri, BIOP
 # Last update: 01 June 2016
-
+version = '1.01'
 # Protocol
 # 1. Launch Macro
 # 2. Define Experiment Settings:
@@ -149,6 +149,10 @@ if os.path.isfile(defaults_path):
         
 # ============== Show Output Window ============== #
 VV.Macro.PrintWindow.IsVisible = True
+
+
+# ==== START ==== #
+print 'Welcome to the double acquisition macro v'+version
 
 
 #***************************************************
