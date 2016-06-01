@@ -114,8 +114,8 @@ def setLaserPower(wavelength, value):
 	# Check that the power was set
 	new_value = VV.Illumination.GetComponentSlider(switcher.get(wavelength))
 	# Reload Panel, to see updated values...
-	VV.Panel.Dialog.Close
-	VV.Panel.Dialog.Show
+	VV.Panel.Dialog.Close()
+	VV.Panel.Dialog.Show()
 	
 
 
