@@ -15,6 +15,7 @@ version = '1.01'
 #		- Exposure Time
 #		- Z Series
 #	    - Camera Region
+#
 #    == Before Pressing OK, Make sure that LIVE is still running ==
 #	            === Otherwise we cannot get the Region ===
 #
@@ -42,16 +43,16 @@ import pickle # To save and write data to a file
 
 # ============== Define Classes ============== #
 class TicToc:
-	""" Manages time measurement in s"""
+	""" Manages time measurement in ms"""
 	t1 = 0
 	t2 = 0
 	
 	def tic(self):
-		self.t1 = time.time()
+		self.t1 = int(round(time.time()*1000))
 	
 	def toc(self):
-		self.t2 = time.time()
-		delta = round( self.t2 - self.t1 )
+		self.t2 = int(round(time.time()*1000))
+		delta = self.t2 - self.t1
 		return delta
 
 
@@ -92,7 +93,6 @@ switcher = {
 	'640': 'Toptica640_Laser640'
 	}
 
-
 # Laser Power Getter, give vavelength as String
 def getLaserPower(wavelength):
 	
@@ -118,6 +118,26 @@ def setLaserPower(wavelength, value):
 	VV.Panel.Dialog.Show()
 	
 
+def runAcquisition(dir, acquisition_name, settings_path, has_crop, region_path, z_focus):
+	# Load settings for BF
+	VV.Acquire.Settings.Load(settings_path)
+	# Load region for cropping camera, if present
+	
+	if has_crop:
+		VV.Acquire.LoadCameraRegion(region_path)
+	
+	# Overwrite the prefix for all images
+	VV.Acquire.Sequence.BaseName = acquisition_name
+	
+	#Overwrite directory for acquisitions
+	VV.Acquire.Sequence.Directory = dir
+	VV.Focus.ZPosition = z_focus
+	# Run Acquisition
+	VV.Acquire.Sequence.Start()
+	VV.Macro.Control.WaitFor('VV.Acquire.IsRunning','!=','true')
+	
+
+
 
 # Instantiate Timer
 T = TicToc()
@@ -130,7 +150,6 @@ VV.Macro.InputDialog.Left  = 100
 VV.Macro.InputDialog.Width = 350
 
 # ============ Initialize Variables =========== #
-
 
 has_crop = False
 
@@ -211,9 +230,9 @@ if not live_handle.IsEmpty:
 VV.Acquire.Stop()
 
 # Save variables for first stack
-z1_focus = VV.Focus.ZPosition
-z1_wave  = VV.Acquire.WaveLength.Illumination
-z1_exp   = VV.Acquire.ExposureTimeMillisecs
+bf_z_focus = VV.Focus.ZPosition
+bf_wave    = VV.Acquire.WaveLength.Illumination
+bf_exp     = VV.Acquire.ExposureTimeMillisecs
 
 # Save BF Settings
 VV.Acquire.Settings.Save(bf_settings_path)
@@ -240,7 +259,7 @@ VV.Macro.InputDialog.AddLabelOnly('And click OK...')
 VV.Macro.InputDialog.Show()
 
 # Save Focus, may be useful
-z2_focus = VV.Focus.ZPosition
+fluo_z_focus = VV.Focus.ZPosition
 VV.Acquire.Stop()
 
 #Save FLUO Settings
@@ -249,10 +268,10 @@ VV.Acquire.Settings.Save(fluo_settings_path)
 # Get and Save Laser Powers
 lasers = getAllLaserPowers()
 
-
+# Save Experiment Settings
 settings = [lasers, time_interval, cycles]
 saveSettings(expt_settings_path, settings)
-# Save Experiment Settings
+
 
 #***************************************************
 # ============== Perform Acquisition ===============
@@ -282,60 +301,31 @@ try:
 		T.tic()
 
 	# == Load BF == #
+		runAcquisition(tmp_dir, "BF", bf_settings_path, has_crop, region_path, bf_z_focus)
 
-		# Load settings for BF
-		VV.Acquire.Settings.Load(bf_settings_path)
-
-		# Load region for cropping camera, if present
-		if has_crop:
-			VV.Acquire.LoadCameraRegion(region_path)
-
-		# Overwrite the prefix for all brightfield images
-		VV.Acquire.Sequence.BaseName = "BF"
-
-		#Overwrite directory for acquisitions
-		VV.Acquire.Sequence.Directory = tmp_dir
-		VV.Focus.ZPosition = z1_focus
-		# Run BF Acquisition
-		VV.Acquire.Sequence.Start()
-		VV.Macro.Control.WaitFor('VV.Acquire.IsRunning','!=','true')
-
-		# End of first acquisition
+		# End of BF acquisition
 		a1 = T.toc();
-		print 'BF took ', str(a1), 's'
+		print 'BF took ', str(a1), 'ms'
 		
 		# == Load FLUO == #
 	# Load settings for FLUO
-		VV.Acquire.Settings.Load(fluo_settings_path)
+		runAcquisition(tmp_dir, "Fluo", fluo_settings_path, has_crop, region_path, fluo_z_focus)
 
-		# Load region for cropping camera, if present
-		if has_crop:
-			VV.Acquire.LoadCameraRegion(region_path)
-
-		# Overwrite the prefix for all fluorescence images
-		VV.Acquire.Sequence.BaseName = "Fluo"
-
-		#Overwrite directory for acquisitions
-		VV.Acquire.Sequence.Directory = tmp_dir
-		
-		VV.Focus.ZPosition = z2_focus
-		# Run FLUO Acquisition
-		VV.Acquire.Sequence.Start()
-		VV.Macro.Control.WaitFor('VV.Acquire.IsRunning','!=','true')
-		
-		# Get end of acquisition cycle
+		# End of BF acquisition
 		delta = T.toc()
-		print 'FLUO took ', str(delta - a1), 's'
+		print 'FLUO took ', str(delta - a1), 'ms'
 		
-		print 'Acquisition #', str(t), ' took ', str(delta), 's'
-		cycle_time = time_interval - delta
+		
+		# End of Acquisition Cycle
+		print 'Acquisition #', str(t), ' took ', str(delta), 'ms'
+		cycle_time = time_interval*1000 - delta
 		
 		# Wait until it's time for the next cycle
 		if cycle_time > 0:
-			print 'waiting ' ,str(cycle_time), ' s before next cycle...'
-			time.sleep(cycle_time)
+			print 'waiting ' ,str(cycle_time), ' ms before next cycle...'
+			time.sleep(cycle_time/1000)
 		else:
-			print 'Cycle time negative (',cycle_time,'s). Continuing immediately'
+			print 'Cycle time negative (',cycle_time,'ms). Continuing immediately'
 
 # This allows for the keyboard to interrupt the acquision
 except KeyboardInterrupt:
