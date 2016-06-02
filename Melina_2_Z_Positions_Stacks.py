@@ -2,8 +2,8 @@
 # Based on initial code by Dr. Arne Seitz, BIOP
 # With help from Visitron Systems
 # Written by Olivier Burri, BIOP
-# Last update: 01 June 2016
-version = '1.01'
+# Last update: 02 June 2016
+version = '1.02'
 # Protocol
 # 1. Launch Macro
 # 2. Define Experiment Settings:
@@ -14,13 +14,13 @@ version = '1.01'
 # 2. Define BRIGHTFIELD Settings
 #		- Exposure Time
 #		- Z Series
-#	    - Camera Region
+#	        - Camera Region
 #
 #    == Before Pressing OK, Make sure that LIVE is still running ==
 #	            === Otherwise we cannot get the Region ===
 #
 #		== All settings will be saved in .acq file in the ==
-#		==           previously defined folder            == 
+#		==           previously defined folder            ==
 #
 # 3. Define Fluorescence Settings
 #		- Exposure Time for each wavelengths
@@ -28,7 +28,7 @@ version = '1.01'
 #		- Z Series
 #
 #		== All settings will be saved in .acq file in the ==
-#		==           previously defined folder            == 
+#		==           previously defined folder            ==
 #
 #    === AFTER PRESSING OK, THE ACQUISITON STARTS
 
@@ -37,7 +37,7 @@ version = '1.01'
 # ==== START CODE ==== ##
 import sys
 import os
-import time   # To assess timings 
+import time   # To assess timings
 import pickle # To save and write data to a file
 
 
@@ -46,10 +46,10 @@ class TicToc:
 	""" Manages time measurement in ms"""
 	t1 = 0
 	t2 = 0
-	
+
 	def tic(self):
 		self.t1 = int(round(time.time()*1000))
-	
+
 	def toc(self):
 		self.t2 = int(round(time.time()*1000))
 		delta = self.t2 - self.t1
@@ -74,14 +74,14 @@ def loadSettings(path):
 			print vars
 	except:
 		print 'Could not load values'
-	
+
 	return vars
-	
+
 
 # ==== MANAGE LASER POWER ====
 # Because Laser power is not saved we manage this on our own
 
-# This variable acts as a 'switch' statement and maps a 
+# This variable acts as a 'switch' statement and maps a
 # simpler name for the lasers to the actual names needed
 # by VV.
 global switcher
@@ -89,13 +89,13 @@ global switcher
 switcher = {
 	'405': 'Toptica405_Laser405',
 	'488': 'Toptica488_Laser488',
-	'561': 'MMC D/A_Laser561', 
+	'561': 'MMC D/A_Laser561',
 	'640': 'Toptica640_Laser640'
 	}
 
 # Laser Power Getter, give vavelength as String
 def getLaserPower(wavelength):
-	
+
 	value = VV.Illumination.GetComponentSlider(switcher.get(wavelength))
 	return value
 
@@ -109,33 +109,33 @@ def getAllLaserPowers():
 
 # Value setter. Value gets set but panel does not update until you open/close it...
 def setLaserPower(wavelength, value):
-	
+
 	VV.Illumination.SetComponentSlider(switcher.get(wavelength), value)
 	# Check that the power was set
 	new_value = VV.Illumination.GetComponentSlider(switcher.get(wavelength))
 	# Reload Panel, to see updated values...
 	VV.Panel.Dialog.Close()
 	VV.Panel.Dialog.Show()
-	
+
 
 def runAcquisition(dir, acquisition_name, settings_path, has_crop, region_path, z_focus):
 	# Load settings for BF
 	VV.Acquire.Settings.Load(settings_path)
 	# Load region for cropping camera, if present
-	
+
 	if has_crop:
 		VV.Acquire.LoadCameraRegion(region_path)
-	
+
 	# Overwrite the prefix for all images
 	VV.Acquire.Sequence.BaseName = acquisition_name
-	
+
 	#Overwrite directory for acquisitions
 	VV.Acquire.Sequence.Directory = dir
 	VV.Focus.ZPosition = z_focus
 	# Run Acquisition
 	VV.Acquire.Sequence.Start()
 	VV.Macro.Control.WaitFor('VV.Acquire.IsRunning','!=','true')
-	
+
 
 
 
@@ -156,22 +156,25 @@ has_crop = False
 save_dir      = VV.Acquire.Sequence.Directory
 
 time_interval = 10 #seconds
-cycles        = 5 
-# Load defaults if present
+cycles        = 5
+bf_z_focus    = 175
+fluo_z_focus  = 175
+lasers        = { '405': 10, '488': 10, '561': 10,  '640': 10 }
 
-defaults_path = 'D:\\Macros\\w1-two-stack-macro\\defaults.txt'
+# ====== DEFAULTS ====== #
+# Load Experiment Settings, if available
+if os.path.isfile(save_dir+'\\expt-settings.txt')
+        lasers, fluo_z_focus, bf_z_focus, time_interval, cycles = loadSettings(save_dir+'\\expt-settings.txt')
 
-if os.path.isfile(defaults_path):
-        with open(defaults_path) as f:
-            time_interval, cycles = pickle.load(f)
 
-        
 # ============== Show Output Window ============== #
 VV.Macro.PrintWindow.IsVisible = True
 
 
 # ==== START ==== #
 print 'Welcome to the double acquisition macro v'+version
+
+
 
 
 #***************************************************
@@ -185,11 +188,11 @@ VV.Macro.InputDialog.Show()
 
 
 # File PATHS
-
 region_path        = save_dir+'\\crop-area-camera'
 bf_settings_path   = save_dir+'\\biop-macro-bf.acq'
 fluo_settings_path = save_dir+'\\biop-macro-fluo.acq'
 expt_settings_path = save_dir+'\\expt-settings.txt'
+
 
 #***************************************************
 # =========== Dialog First Stack Plane =============
@@ -203,7 +206,10 @@ except :
 
 # Run Live Mode
 VV.Acquire.FullCameraArea()
-VV.Acquire.StartLive();
+VV.Acquire.StartLive()
+
+# Set focus from previous settings
+VV.Focus.ZPosition = bf_z_focus
 
 VV.Macro.InputDialog.Initialize('Define your Brightfield Parameters: ',True)
 VV.Macro.InputDialog.AddLabelOnly('1. Define a region for CCD Cropping.')
@@ -231,8 +237,8 @@ VV.Acquire.Stop()
 
 # Save variables for first stack
 bf_z_focus = VV.Focus.ZPosition
-bf_wave    = VV.Acquire.WaveLength.Illumination
-bf_exp     = VV.Acquire.ExposureTimeMillisecs
+#bf_wave    = VV.Acquire.WaveLength.Illumination
+#bf_exp     = VV.Acquire.ExposureTimeMillisecs
 
 # Save BF Settings
 VV.Acquire.Settings.Save(bf_settings_path)
@@ -249,7 +255,13 @@ try:
 except :
 	print sys.exc_value, ': No previous Fluo settings exist'
 
+
+# Set focus from previous settings
+VV.Focus.ZPosition = fluo_z_focus
+
+# Show Acquisition
 VV.Acquire.StartLive();
+
 VV.Macro.InputDialog.Initialize('Define your Fluorescence Parameters',True)
 VV.Macro.InputDialog.AddLabelOnly('1. Choose Illumination(s), exposure, laser, settings')
 VV.Macro.InputDialog.AddLabelOnly('2. Choose Z series parameters')
@@ -269,7 +281,7 @@ VV.Acquire.Settings.Save(fluo_settings_path)
 lasers = getAllLaserPowers()
 
 # Save Experiment Settings
-settings = [lasers, time_interval, cycles]
+settings = [lasers, fluo_z_focus, bf_z_focus, time_interval, cycles]
 saveSettings(expt_settings_path, settings)
 
 
@@ -285,18 +297,14 @@ d = os.path.dirname(tmp_dir)
 if not os.path.exists(d):
 	os.makedirs(d)
 
-# Load camera region if it exists
-if has_crop:
-	VV.Acquire.LoadCameraRegion(region_path)
-
 # Enclose in a try loop, to make sure we can interrupt the
 # acquisition as necessary (CTRL-C or ESC)
 try:
 	for t in range(0,cycles):
-		
+
 		# Save memory, close all windows
 		VV.Window.CloseAll(False)
-		
+
 		# Start timing the acquisition cycle
 		T.tic()
 
@@ -306,20 +314,19 @@ try:
 		# End of BF acquisition
 		a1 = T.toc();
 		print 'BF took ', str(a1), 'ms'
-		
-		# == Load FLUO == #
-	# Load settings for FLUO
+
+	# == Load FLUO == #
 		runAcquisition(tmp_dir, "Fluo", fluo_settings_path, has_crop, region_path, fluo_z_focus)
 
 		# End of BF acquisition
 		delta = T.toc()
 		print 'FLUO took ', str(delta - a1), 'ms'
-		
-		
+
+
 		# End of Acquisition Cycle
 		print 'Acquisition #', str(t), ' took ', str(delta), 'ms'
 		cycle_time = time_interval*1000 - delta
-		
+
 		# Wait until it's time for the next cycle
 		if cycle_time > 0:
 			print 'waiting ' ,str(cycle_time), ' ms before next cycle...'
