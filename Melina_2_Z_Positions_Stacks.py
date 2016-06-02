@@ -76,6 +76,15 @@ def loadSettings(path):
 
 	return vars
 
+# Save settings in text format for use in subsequent macros
+
+def saveSettingsForMacro(path, **info):
+        try:
+                f = open(path, 'w')
+                for name, value in info.items():
+                        name.write(name+' : '+str(value)+'\n')
+        except:
+                print 'Could not save settings to ', path
 
 # ==== MANAGE LASER POWER ====
 # Because Laser power is not saved we manage this on our own
@@ -307,8 +316,8 @@ d = os.path.dirname(tmp_dir)
 if not os.path.exists(d):
 	os.makedirs(d)
 
-print str(bf_z_focus)
-print str(fluo_z_focus)
+# Save settings in a format that our macros can read!
+saveSettingsForMacro(tmp_dir+"\\Settings.txt", lasers, bf_z_focus, fluo_z_focus, time_interval, cycles, prefix)
 
 # Enclose in a try loop, to make sure we can interrupt the
 # acquisition as necessary (CTRL-C or ESC)
