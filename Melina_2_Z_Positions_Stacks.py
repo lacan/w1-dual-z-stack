@@ -82,7 +82,8 @@ def saveSettingsForMacro(path, **info):
         try:
                 f = open(path, 'w')
                 for name, value in info.items():
-                        name.write(name+' : '+str(value)+'\n')
+                	f.write(name+' : '+str(value)+'\n')
+                f.close()
         except:
                 print 'Could not save settings to ', path
 
@@ -176,8 +177,8 @@ save_dir      = VV.Acquire.Sequence.Directory
 prefix        = ''
 time_interval = 10 #seconds
 cycles        = 5
-bf_z_focus    = 175
-fluo_z_focus  = 175
+a1_z_focus    = 175
+a2_z_focus    = 175
 
 a1_name   	  = 'A1'
 a2_name   	  = 'A2'
@@ -192,9 +193,10 @@ print 'Welcome to the double acquisition macro v'+version
 
 # ====== IF Settings exist ====== #
 if os.path.isfile(save_dir+'\\expt-settings.txt'):
-	lasers, bf_z_focus, fluo_z_focus, time_interval, cycles, prefix = loadSettings(save_dir+'\\expt-settings.txt')		
+	lasers, a1_z_focus, a2_z_focus, time_interval, cycles, prefix = loadSettings(save_dir+'\\expt-settings.txt')		
 setAllLaserPowers(lasers)
-		
+
+saveSettingsForMacro(save_dir+'\\settings.txt', a1_z_focus=a1_z_focus)
 
 #***************************************************
 # ================ Dialog Directory ================
@@ -209,8 +211,8 @@ VV.Macro.InputDialog.Show()
 
 # File PATHS
 region_path        = save_dir+'\\crop-area-camera'
-bf_settings_path   = save_dir+'\\biop-macro-bf.acq'
-fluo_settings_path = save_dir+'\\biop-macro-fluo.acq'
+a1_settings_path   = save_dir+'\\biop-macro-a1.acq'
+a2_settings_path   = save_dir+'\\biop-macro-a2.acq'
 expt_settings_path = save_dir+'\\expt-settings.txt'
 
 
@@ -220,7 +222,7 @@ expt_settings_path = save_dir+'\\expt-settings.txt'
 
 # Load settings if already present
 try :
-	VV.Acquire.Settings.Load(bf_settings_path)
+	VV.Acquire.Settings.Load(a1_settings_path)
 except :
 	print sys.exc_value, ': No previous '+a1_name+' settings exist'
 
@@ -229,7 +231,7 @@ VV.Acquire.FullCameraArea()
 VV.Acquire.StartLive()
 
 # Set focus from previous settings
-VV.Focus.ZPosition = bf_z_focus
+VV.Focus.ZPosition = a1_z_focus
 
 VV.Macro.InputDialog.Initialize('Define your '+a1_name+' Parameters: ',True)
 VV.Macro.InputDialog.AddLabelOnly('1. Define a region for CCD Cropping.')
@@ -256,12 +258,12 @@ if not live_handle.IsEmpty:
 VV.Acquire.Stop()
 
 # Save variables for first stack
-bf_z_focus = VV.Focus.ZPosition
+a1_z_focus = VV.Focus.ZPosition
 #bf_wave    = VV.Acquire.WaveLength.Illumination
 #bf_exp     = VV.Acquire.ExposureTimeMillisecs
 
 # Save BF Settings
-VV.Acquire.Settings.Save(bf_settings_path)
+VV.Acquire.Settings.Save(a1_settings_path)
 
 
 
@@ -271,13 +273,13 @@ VV.Acquire.Settings.Save(bf_settings_path)
 
 # Load settings if already present
 try:
-	VV.Acquire.Settings.Load(fluo_settings_path)
+	VV.Acquire.Settings.Load(a2_settings_path)
 except :
 	print sys.exc_value, ': No previous '+a2_name+' settings exist'
 
 
 # Set focus from previous settings
-VV.Focus.ZPosition = fluo_z_focus
+VV.Focus.ZPosition = a2_z_focus
 
 # Show Acquisition
 VV.Acquire.StartLive();
@@ -291,17 +293,17 @@ VV.Macro.InputDialog.AddLabelOnly('And click OK...')
 VV.Macro.InputDialog.Show()
 
 # Save Focus, may be useful
-fluo_z_focus = VV.Focus.ZPosition
+a2_z_focus = VV.Focus.ZPosition
 VV.Acquire.Stop()
 
 #Save FLUO Settings
-VV.Acquire.Settings.Save(fluo_settings_path)
+VV.Acquire.Settings.Save(a2_settings_path)
 
 # Get and Save Laser Powers
 lasers = getAllLaserPowers()
 
 # Save Experiment Settings
-saveSettings(expt_settings_path, lasers, bf_z_focus, fluo_z_focus, time_interval, cycles, prefix)
+saveSettings(expt_settings_path, lasers, a1_z_focus, a2_z_focus, time_interval, cycles, prefix)
 
 
 #***************************************************
@@ -317,7 +319,7 @@ if not os.path.exists(d):
 	os.makedirs(d)
 
 # Save settings in a format that our macros can read!
-saveSettingsForMacro(tmp_dir+"\\Settings.txt", lasers, bf_z_focus, fluo_z_focus, time_interval, cycles, prefix)
+saveSettingsForMacro(tmp_dir+"\\Settings.txt", lasers=lasers, a1_z_focus=a1_z_focus, a2_z_focus=a2_z_focus, time_interval=time_interval, cycles=cycles, prefix=prefix)
 
 # Enclose in a try loop, to make sure we can interrupt the
 # acquisition as necessary (CTRL-C or ESC)
@@ -331,14 +333,14 @@ try:
 		T.tic()
 
 	# == Load BF == #
-		runAcquisition(tmp_dir, a1_name+'-'+prefix+'-', bf_settings_path, has_crop, region_path, bf_z_focus)
+		runAcquisition(tmp_dir, a1_name+'-'+prefix+'-', a1_settings_path, has_crop, region_path, a1_z_focus)
 
 		# End of BF acquisition
 		a1 = T.toc();
 		print a1_name, ' took ', str(a1), 'ms'
 
 	# == Load FLUO == #
-		runAcquisition(tmp_dir, a2_name+'-'+prefix+'-', fluo_settings_path, has_crop, region_path, fluo_z_focus)
+		runAcquisition(tmp_dir, a2_name+'-'+prefix+'-', a2_settings_path, has_crop, region_path, a2_z_focus)
 
 		# End of BF acquisition
 		delta = T.toc()
