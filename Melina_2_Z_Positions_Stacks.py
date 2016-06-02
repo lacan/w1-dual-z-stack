@@ -71,7 +71,6 @@ def loadSettings(path):
 		# Save Settings
 		with open(path) as f:
 			vars = pickle.load(f)
-			print vars
 	except:
 		print 'Could not load values'
 
@@ -99,14 +98,6 @@ def getLaserPower(wavelength):
 	value = VV.Illumination.GetComponentSlider(switcher.get(wavelength))
 	return value
 
-# Convenience, get all laser powers
-def getAllLaserPowers():
-	i405 = getLaserPower('405')
-	i488 = getLaserPower('488')
-	i561 = getLaserPower('561')
-	i640 = getLaserPower('640')
-	return { '405': i405, '488': i488, '561': i561,  '640':i640 }
-
 # Value setter. Value gets set but panel does not update until you open/close it...
 def setLaserPower(wavelength, value):
 
@@ -114,10 +105,26 @@ def setLaserPower(wavelength, value):
 	# Check that the power was set
 	new_value = VV.Illumination.GetComponentSlider(switcher.get(wavelength))
 	# Reload Panel, to see updated values...
+
+
+# Convenience, get all laser powers
+def getAllLaserPowers():
+	i405 = getLaserPower('405')
+	i488 = getLaserPower('488')
+	i561 = getLaserPower('561')
+	i640 = getLaserPower('640')
+	return { '405': i405, '488': i488, '561': i561,  '640':i640 }
+	
+# Convenience, set all laser powers
+def setAllLaserPowers(laser_powers):
+	for laser in laser_powers:
+		setLaserPower(laser, laser_powers[laser])
+	
 	VV.Panel.Dialog.Close()
+	VV.Macro.Control.Delay(1,'sec')
 	VV.Panel.Dialog.Show()
 
-
+# Runs a given acquisition
 def runAcquisition(dir, acquisition_name, settings_path, has_crop, region_path, z_focus):
 	# Load settings for BF
 	VV.Acquire.Settings.Load(settings_path)
@@ -138,6 +145,8 @@ def runAcquisition(dir, acquisition_name, settings_path, has_crop, region_path, 
 
 
 
+# ============== Show Output Window ============== #
+VV.Macro.PrintWindow.IsVisible = True
 
 # Instantiate Timer
 T = TicToc()
@@ -161,21 +170,16 @@ bf_z_focus    = 175
 fluo_z_focus  = 175
 lasers        = { '405': 10, '488': 10, '561': 10,  '640': 10 }
 
-# ====== DEFAULTS ====== #
-# Load Experiment Settings, if available
-if os.path.isfile(save_dir+'\\expt-settings.txt')
-        lasers, fluo_z_focus, bf_z_focus, time_interval, cycles = loadSettings(save_dir+'\\expt-settings.txt')
-
-
-# ============== Show Output Window ============== #
-VV.Macro.PrintWindow.IsVisible = True
-
 
 # ==== START ==== #
 print 'Welcome to the double acquisition macro v'+version
 
 
-
+# ====== IF Settings exist ====== #
+if os.path.isfile(save_dir+'\\expt-settings.txt'):
+	lasers, bf_z_focus, fluo_z_focus, time_interval, cycles = loadSettings(save_dir+'\\expt-settings.txt')		
+setAllLaserPowers(lasers)
+		
 
 #***************************************************
 # ================ Dialog Directory ================
@@ -281,8 +285,7 @@ VV.Acquire.Settings.Save(fluo_settings_path)
 lasers = getAllLaserPowers()
 
 # Save Experiment Settings
-settings = [lasers, fluo_z_focus, bf_z_focus, time_interval, cycles]
-saveSettings(expt_settings_path, settings)
+saveSettings(expt_settings_path, lasers, bf_z_focus, fluo_z_focus, time_interval, cycles)
 
 
 #***************************************************
@@ -296,6 +299,9 @@ tmp_dir = save_dir+"\\"+str(int(round(time.time(),0)))+"\\"
 d = os.path.dirname(tmp_dir)
 if not os.path.exists(d):
 	os.makedirs(d)
+
+print str(bf_z_focus)
+print str(fluo_z_focus)
 
 # Enclose in a try loop, to make sure we can interrupt the
 # acquisition as necessary (CTRL-C or ESC)
