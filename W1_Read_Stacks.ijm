@@ -67,7 +67,7 @@ function openFolder() {
 
 	// Image directory
 	dir = getDirectory("Acquisition Folder");
-	setBatchMode(true);
+	setBatchMode(false);
 	// Get the acquisition file
 	if (File.exists(dir+sep+"Settings.txt")) {
 		loadFile(dir+sep+"Settings.txt");
@@ -78,6 +78,7 @@ function openFolder() {
 		
 		cycles = parseInt(getData("cycles"));
 		prefix = getData("prefix");
+		px_size = getData("px_size");
 		
 		// Now perform the import of A1 and A2. The macro so far only allows for two acquisitions
 		// Though this part of the code handles any number...
@@ -91,13 +92,20 @@ function openFolder() {
 				currentAcq = substring(files[i], 0,2);
 				currentChan= substring(files[i], lastIndexOf(files[i], "_")+1, lastIndexOf(files[i], ".") );
 				id = currentAcq+currentChan;
-				print(currentAcq, currentChan);
+				print(wasNotLoaded(id, loadedIds));
 				if(wasNotLoaded(id, loadedIds)) {
 					loadedIds+=","+id;
-					run("Image Sequence...", "open=["+dir+sep+files[i]+"] file="+currentChan+" sort");
+					fileId = dir+sep+files[i];
+					print(wasNotLoaded(id, loadedIds), fileId, id);
+					//run("Bio-Formats Importer", "open=["+fileId+"] group_files view=Hyperstack stack_order=XYCZT contains="+currentChan);
+					run("Image Sequence...", "open=["+fileId+"] file="+currentChan+" sort");
 					
 					nZ = nSlices / cycles;
 					run("Stack to Hyperstack...", "order=xyczt(default) channels=1 slices="+nZ+" frames="+cycles+" display=Color");
+					// Keep Z Step but change px size
+					getVoxelSize(vx,vy,vz,U);
+					setVoxelSize(px_size,px_size,vz,U);
+					
 					wait(100);
 					rename(currentAcq+"-"+prefix+"-"+currentChan);
 					//waitForUser;
@@ -118,6 +126,7 @@ function openFolder() {
 
 	
 	setBatchMode(false);
+	run("Synchronize Windows");
 }
 
 function mergeAcquisition(startText) {
@@ -177,7 +186,7 @@ function wasNotLoaded(current, olds) {
 //********* Select Image
 <line>
 <button>
-label=Load Data
+label=Load W1 Stack
 arg=<macro>
 	openFolder();
 </macro>
