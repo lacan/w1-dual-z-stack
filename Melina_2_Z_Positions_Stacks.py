@@ -254,13 +254,17 @@ if not live_handle.IsEmpty:
 		VV.Edit.Regions.Save(region_path)
 		has_crop = True
 
-#Stop acquisition
-VV.Acquire.Stop()
+
 
 # Save variables for first stack
 a1_z_focus = VV.Focus.ZPosition
-#bf_wave    = VV.Acquire.WaveLength.Illumination
-#bf_exp     = VV.Acquire.ExposureTimeMillisecs
+
+# Save Pixel Size, for macro in ImageJ
+px_size     = VV.Image.Calibration.Value
+
+
+#Stop acquisition
+VV.Acquire.Stop()
 
 # Save BF Settings
 VV.Acquire.Settings.Save(a1_settings_path)
@@ -319,7 +323,7 @@ if not os.path.exists(d):
 	os.makedirs(d)
 
 # Save settings in a format that our macros can read!
-saveSettingsForMacro(tmp_dir+"\\Settings.txt", lasers=lasers, a1_z_focus=a1_z_focus, a2_z_focus=a2_z_focus, time_interval=time_interval, cycles=cycles, prefix=prefix)
+saveSettingsForMacro(tmp_dir+"\\Settings.txt", lasers=lasers, a1_z_focus=a1_z_focus, a2_z_focus=a2_z_focus, time_interval=time_interval, cycles=cycles, prefix=prefix, px_size=px_size)
 
 # Enclose in a try loop, to make sure we can interrupt the
 # acquisition as necessary (CTRL-C or ESC)
@@ -332,22 +336,25 @@ try:
 		# Start timing the acquisition cycle
 		T.tic()
 
-	# == Load BF == #
+	# == Load A1 == #
 		runAcquisition(tmp_dir, a1_name+'-'+prefix+'-', a1_settings_path, has_crop, region_path, a1_z_focus)
+		
 
-		# End of BF acquisition
+		# End of A1 acquisition
 		a1 = T.toc();
 		print a1_name, ' took ', str(a1), 'ms'
+		
 
-	# == Load FLUO == #
+	# == Load A2 == #
 		runAcquisition(tmp_dir, a2_name+'-'+prefix+'-', a2_settings_path, has_crop, region_path, a2_z_focus)
 
-		# End of BF acquisition
+
+		# End of A2 acquisition
 		delta = T.toc()
 		print a2_name, ' took ', str(delta - a1), 'ms'
 
 
-		# End of Acquisition Cycle
+	# == End of Acquisition Cycle == #
 		print 'Acquisition #', str(t), ' took ', str(delta), 'ms'
 		cycle_time = time_interval*1000 - delta
 
@@ -366,4 +373,3 @@ except KeyboardInterrupt:
 #Reset directory for acquisitions
 VV.Acquire.Sequence.Directory = save_dir
 print "Finished in "+tmp_dir
-
