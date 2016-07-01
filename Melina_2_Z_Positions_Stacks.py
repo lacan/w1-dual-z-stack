@@ -314,6 +314,11 @@ saveSettings(expt_settings_path, lasers, a1_z_focus, a2_z_focus, time_interval, 
 # ============== Perform Acquisition ===============
 #***************************************************
 
+# Closing windows with delay to make sure Melina can see the last stacks
+a1_windows = []
+a2_windows = []
+
+
 # Define directory for saving stacks
 tmp_dir = save_dir+"\\"+str(int(round(time.time(),0)))+"\\"
 
@@ -331,14 +336,16 @@ try:
 	for t in range(0,cycles):
 
 		# Save memory, close all windows
-		#VV.Window.CloseAll(False)
+		# VV.Window.CloseAll(False) # Stop using it
 
 		# Start timing the acquisition cycle
 		T.tic()
 
 	# == Load A1 == #
 		runAcquisition(tmp_dir, a1_name+'-'+prefix+'-', a1_settings_path, has_crop, region_path, a1_z_focus)
-		
+
+		# Get name of current window and append to list
+		a1_windows.append(VV.Window.GetHandle SOMETHING)
 
 		# End of A1 acquisition
 		a1 = T.toc();
@@ -348,7 +355,9 @@ try:
 	# == Load A2 == #
 		runAcquisition(tmp_dir, a2_name+'-'+prefix+'-', a2_settings_path, has_crop, region_path, a2_z_focus)
 
-
+		# Get name of current window and append to list
+		a2_windows.append(VV.Window.GetHandle SOMETHING)
+		
 		# End of A2 acquisition
 		delta = T.toc()
 		print a2_name, ' took ', str(delta - a1), 'ms'
@@ -364,6 +373,16 @@ try:
 			time.sleep(cycle_time/1000)
 		else:
 			print 'Cycle time negative (',cycle_time,'ms). Continuing immediately'
+
+	# == Close the last windows if there are already 3 open
+                if a1_windows.count() > 3
+                        VV.Window.Close SOMETHING WITH THE HANDLE
+                        del a1_windows[0]
+                        
+                        VV.Window.Close SOMETHING WITH THE HANDLE
+                        del a2_windows[0]
+
+		
 
 # This allows for the keyboard to interrupt the acquision
 except KeyboardInterrupt:
