@@ -331,7 +331,7 @@ try:
 	for t in range(0,cycles):
 
 		# Save memory, close all windows
-		VV.Window.CloseAll(False)
+		#VV.Window.CloseAll(False)
 
 		# Start timing the acquisition cycle
 		T.tic()
