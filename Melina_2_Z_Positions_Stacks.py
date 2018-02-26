@@ -249,6 +249,7 @@ expt_settings_path = save_dir+'\\expt-settings.txt'
 # Load settings if already present
 try :
 	VV.Acquire.Settings.Load(a1_settings_path)
+	VV.Acquire.Settings.Load(a1_settings_path)
 except :
 	print sys.exc_value, ': No previous '+a1_name+' settings exist'
 
@@ -303,6 +304,7 @@ VV.Acquire.Settings.Save(a1_settings_path)
 
 # Load settings if already present
 try:
+	VV.Acquire.Settings.Load(a2_settings_path)
 	VV.Acquire.Settings.Load(a2_settings_path)
 except :
 	print sys.exc_value, ': No previous '+a2_name+' settings exist'
