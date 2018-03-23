@@ -96,7 +96,7 @@ def killWindows():
 
 
 	iteration = [int(n.group(1)) for win in names for n in [r.search(win)] if n ]
-	if iteration is not None:
+	if iteration and iteration is not None:
 		largest = max((iteration))
 	
 		to_kill = [ names[i] for i,v in enumerate(iteration) if v < largest ]
