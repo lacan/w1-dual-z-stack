@@ -2,7 +2,10 @@
 # Based on initial code by Dr. Arne Seitz, BIOP
 # With help from Visitron Systems
 # Written by Olivier Burri, BIOP
-# Last update: 02 June 2016
+# Last update: 04 July 2018
+# 	- July 2018: Fixes issue for positioning the dialog.
+
+
 version = '1.02'
 # Protocol
 # 1. Launch Macro
@@ -92,7 +95,7 @@ def killWindows():
 	names = VV.Window.NameList
 
 	# Keep only the ones without the highest number
-	r = re.compile('A\d.*--(\d+).*')
+	r = re.compile('A\d.*-(\d+).*')
 
 
 	iteration = [int(n.group(1)) for win in names for n in [r.search(win)] if n ]
@@ -185,12 +188,6 @@ VV.Macro.PrintWindow.IsVisible = True
 # Instantiate Timer
 T = TicToc()
 
-# ============== Some Aesthetics ============== #
-
-# Input Dialog size
-VV.Macro.InputDialog.Top   = 20
-VV.Macro.InputDialog.Left  = 100
-VV.Macro.InputDialog.Width = 350
 
 # ============ Initialize Variables =========== #
 
@@ -232,6 +229,11 @@ VV.Macro.InputDialog.AddDirectoryVariable('Save Folder', 'save_dir', save_dir)
 VV.Macro.InputDialog.AddStringVariable('Acquisition Prefix', 'prefix', prefix)
 VV.Macro.InputDialog.AddFloatVariable('Time Interval [s]', 'time_interval', time_interval, 0, 100000, 1)
 VV.Macro.InputDialog.AddFloatVariable('Cycles', 'cycles', cycles, 0, 100000, 1)
+# ============== Some Aesthetics ============== #
+VV.Macro.InputDialog.Top   = 20
+VV.Macro.InputDialog.Left  = 100
+VV.Macro.InputDialog.Width = 350
+
 VV.Macro.InputDialog.Show()
 
 
@@ -288,7 +290,6 @@ a1_z_focus = VV.Focus.ZPosition
 
 # Save Pixel Size, for macro in ImageJ
 px_size     = VV.Image.Calibration.Value
-
 
 #Stop acquisition
 VV.Acquire.Stop()
@@ -370,6 +371,7 @@ try:
 
 		# Start timing the acquisition cycle
 		T.tic()
+
 
 	# == Load A1 == #
 		runAcquisition(tmp_dir, a1_name+'-'+prefix+'-', a1_settings_path, has_crop, region_path, a1_z_focus)
